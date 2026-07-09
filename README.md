@@ -12,7 +12,15 @@ portfolio data into approachable, beginner-friendly insights.
 - Mock risk, diversification, performance, and AI insight cards
 - Educational-only disclaimer
 
-This checkpoint uses mock data. Authentication, persistent storage, live market
+## Checkpoint 2
+
+- Saves portfolio holdings in the browser with `localStorage`
+- Keeps added and removed holdings after the page refreshes
+- Adds an optional company or fund name field when creating a holding
+- Shows a validation message when the form is incomplete
+- Adds a reset button to restore the sample portfolio
+
+This version still uses mock data. Authentication, database storage, live market
 data, calculated risk metrics, and grounded AI responses will be added in later
 checkpoints.
 
