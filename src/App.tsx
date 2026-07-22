@@ -46,6 +46,7 @@ function App() {
   const [amount, setAmount] = useState('')
   const [showForm, setShowForm] = useState(false)
   const [formError, setFormError] = useState('')
+  const [editingHoldingId, setEditingHoldingId] = useState<number | null>(null)
 
   useEffect(() => {
     localStorage.setItem(storageKey, JSON.stringify(holdings))
@@ -66,7 +67,29 @@ function App() {
     return `conic-gradient(${slices.join(', ') || '#e9e8f2 0 100%'})`
   }, [holdings, total])
 
-  function addHolding(event: FormEvent) {
+  function clearForm() {
+    setTicker('')
+    setCompanyName('')
+    setAmount('')
+    setFormError('')
+    setEditingHoldingId(null)
+  }
+
+  function openAddForm() {
+    clearForm()
+    setShowForm(true)
+  }
+
+  function startEditing(holding: Holding) {
+    setTicker(holding.ticker)
+    setCompanyName(holding.name)
+    setAmount(String(holding.amount))
+    setFormError('')
+    setEditingHoldingId(holding.id)
+    setShowForm(true)
+  }
+
+  function saveHolding(event: FormEvent) {
     event.preventDefault()
     const cleanTicker = ticker.trim().toUpperCase()
     const cleanCompanyName = companyName.trim()
@@ -76,20 +99,33 @@ function App() {
       return
     }
 
-    setHoldings((current) => [
-      ...current,
-      {
-        id: Date.now(),
-        ticker: cleanTicker,
-        name: cleanCompanyName || `${cleanTicker} holding`,
-        amount: numericAmount,
-        color: colors[current.length % colors.length],
-      },
-    ])
-    setTicker('')
-    setCompanyName('')
-    setAmount('')
-    setFormError('')
+    if (editingHoldingId) {
+      setHoldings((current) =>
+        current.map((holding) =>
+          holding.id === editingHoldingId
+            ? {
+                ...holding,
+                ticker: cleanTicker,
+                name: cleanCompanyName || `${cleanTicker} holding`,
+                amount: numericAmount,
+              }
+            : holding,
+        ),
+      )
+    } else {
+      setHoldings((current) => [
+        ...current,
+        {
+          id: Date.now(),
+          ticker: cleanTicker,
+          name: cleanCompanyName || `${cleanTicker} holding`,
+          amount: numericAmount,
+          color: colors[current.length % colors.length],
+        },
+      ])
+    }
+
+    clearForm()
     setShowForm(false)
   }
 
@@ -103,6 +139,8 @@ function App() {
     setCompanyName('')
     setAmount('')
     setFormError('')
+    setEditingHoldingId(null)
+    setShowForm(false)
   }
 
   return (
@@ -134,11 +172,11 @@ function App() {
             <h1>Good afternoon, Ananya.</h1>
             <p>Here’s how your portfolio is looking today.</p>
           </div>
-          <button className="primary" onClick={() => setShowForm(true)}>＋ Add holding</button>
+          <button className="primary" onClick={openAddForm}>＋ Add holding</button>
         </header>
 
         {showForm && (
-          <form className="add-form" onSubmit={addHolding}>
+          <form className="add-form" onSubmit={saveHolding}>
             <label>
               Ticker
               <input value={ticker} onChange={(e) => setTicker(e.target.value)} placeholder="e.g. TSLA" autoFocus />
@@ -151,8 +189,8 @@ function App() {
               Amount invested
               <input value={amount} onChange={(e) => setAmount(e.target.value)} type="number" min="1" placeholder="$1,000" />
             </label>
-            <button className="primary" type="submit">Add to portfolio</button>
-            <button className="text-button" type="button" onClick={() => setShowForm(false)}>Cancel</button>
+            <button className="primary" type="submit">{editingHoldingId ? 'Save changes' : 'Add to portfolio'}</button>
+            <button className="text-button" type="button" onClick={() => { clearForm(); setShowForm(false) }}>Cancel</button>
             {formError && <p className="form-error">{formError}</p>}
           </form>
         )}
@@ -196,18 +234,23 @@ function App() {
         </section>
 
         <section className="panel holdings" id="holdings">
-          <div className="panel-heading"><div><p className="eyebrow">POSITIONS</p><h2>Your holdings</h2></div><button className="text-button" onClick={() => setShowForm(true)}>＋ Add holding</button></div>
+          <div className="panel-heading"><div><p className="eyebrow">POSITIONS</p><h2>Your holdings</h2></div><button className="text-button" onClick={openAddForm}>＋ Add holding</button></div>
           <p className="save-note">Saved in this browser. Refresh the page and your portfolio will still be here.</p>
           <div className="table-wrap">
             <table>
-              <thead><tr><th>Asset</th><th>Amount</th><th>Allocation</th><th></th></tr></thead>
+              <thead><tr><th>Asset</th><th>Amount</th><th>Allocation</th><th>Actions</th></tr></thead>
               <tbody>
                 {holdings.map((holding) => (
                   <tr key={holding.id}>
                     <td><span className="ticker-icon" style={{background: holding.color}}>{holding.ticker.slice(0, 1)}</span><span><strong>{holding.ticker}</strong><small>{holding.name}</small></span></td>
                     <td>{money.format(holding.amount)}</td>
                     <td>{total ? ((holding.amount / total) * 100).toFixed(1) : 0}%</td>
-                    <td><button className="delete" onClick={() => removeHolding(holding.id)} aria-label={`Remove ${holding.ticker}`}>×</button></td>
+                    <td>
+                      <div className="row-actions">
+                        <button className="edit" onClick={() => startEditing(holding)}>Edit</button>
+                        <button className="delete" onClick={() => removeHolding(holding.id)} aria-label={`Remove ${holding.ticker}`}>×</button>
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
