@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 import './App.css'
 
@@ -19,17 +19,37 @@ const starterHoldings: Holding[] = [
   { id: 4, ticker: 'MSFT', name: 'Microsoft Corp.', amount: 1000, color: colors[3] },
 ]
 
+const storageKey = 'finsight-ai-holdings'
+
 const money = new Intl.NumberFormat('en-US', {
   style: 'currency',
   currency: 'USD',
   maximumFractionDigits: 0,
 })
 
+function loadSavedHoldings() {
+  const savedHoldings = localStorage.getItem(storageKey)
+  if (!savedHoldings) return starterHoldings
+
+  try {
+    const parsedHoldings = JSON.parse(savedHoldings) as Holding[]
+    return parsedHoldings.length ? parsedHoldings : starterHoldings
+  } catch {
+    return starterHoldings
+  }
+}
+
 function App() {
-  const [holdings, setHoldings] = useState<Holding[]>(starterHoldings)
+  const [holdings, setHoldings] = useState<Holding[]>(loadSavedHoldings)
   const [ticker, setTicker] = useState('')
+  const [companyName, setCompanyName] = useState('')
   const [amount, setAmount] = useState('')
   const [showForm, setShowForm] = useState(false)
+  const [formError, setFormError] = useState('')
+
+  useEffect(() => {
+    localStorage.setItem(storageKey, JSON.stringify(holdings))
+  }, [holdings])
 
   const total = useMemo(
     () => holdings.reduce((sum, holding) => sum + holding.amount, 0),
@@ -49,26 +69,40 @@ function App() {
   function addHolding(event: FormEvent) {
     event.preventDefault()
     const cleanTicker = ticker.trim().toUpperCase()
+    const cleanCompanyName = companyName.trim()
     const numericAmount = Number(amount)
-    if (!cleanTicker || numericAmount <= 0) return
+    if (!cleanTicker || numericAmount <= 0) {
+      setFormError('Please enter a ticker and an amount greater than $0.')
+      return
+    }
 
     setHoldings((current) => [
       ...current,
       {
         id: Date.now(),
         ticker: cleanTicker,
-        name: `${cleanTicker} holding`,
+        name: cleanCompanyName || `${cleanTicker} holding`,
         amount: numericAmount,
         color: colors[current.length % colors.length],
       },
     ])
     setTicker('')
+    setCompanyName('')
     setAmount('')
+    setFormError('')
     setShowForm(false)
   }
 
   function removeHolding(id: number) {
     setHoldings((current) => current.filter((holding) => holding.id !== id))
+  }
+
+  function resetPortfolio() {
+    setHoldings(starterHoldings)
+    setTicker('')
+    setCompanyName('')
+    setAmount('')
+    setFormError('')
   }
 
   return (
@@ -110,11 +144,16 @@ function App() {
               <input value={ticker} onChange={(e) => setTicker(e.target.value)} placeholder="e.g. TSLA" autoFocus />
             </label>
             <label>
+              Company or fund name
+              <input value={companyName} onChange={(e) => setCompanyName(e.target.value)} placeholder="e.g. Tesla Inc." />
+            </label>
+            <label>
               Amount invested
               <input value={amount} onChange={(e) => setAmount(e.target.value)} type="number" min="1" placeholder="$1,000" />
             </label>
             <button className="primary" type="submit">Add to portfolio</button>
             <button className="text-button" type="button" onClick={() => setShowForm(false)}>Cancel</button>
+            {formError && <p className="form-error">{formError}</p>}
           </form>
         )}
 
@@ -158,6 +197,7 @@ function App() {
 
         <section className="panel holdings" id="holdings">
           <div className="panel-heading"><div><p className="eyebrow">POSITIONS</p><h2>Your holdings</h2></div><button className="text-button" onClick={() => setShowForm(true)}>＋ Add holding</button></div>
+          <p className="save-note">Saved in this browser. Refresh the page and your portfolio will still be here.</p>
           <div className="table-wrap">
             <table>
               <thead><tr><th>Asset</th><th>Amount</th><th>Allocation</th><th></th></tr></thead>
@@ -173,6 +213,7 @@ function App() {
               </tbody>
             </table>
           </div>
+          <button className="reset-button" onClick={resetPortfolio}>Reset to sample portfolio</button>
         </section>
       </main>
     </div>
